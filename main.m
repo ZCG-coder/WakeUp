@@ -92,10 +92,10 @@
       [[NSAppleScript alloc] initWithSource:scriptSource];
   NSDictionary *errorDict = nil;
 
-  [appleScript executeAndReturnError:&errorDict];
-
+  NSAppleEventDescriptor *res = [appleScript executeAndReturnError:&errorDict];
   if (errorDict) {
-    [self showErrorBox:@"An error occured"];
+    [self showErrorBox:[@"An error occured\n"
+                           stringByAppendingString:res.stringValue]];
     return NO;
   }
 
@@ -103,19 +103,19 @@
 }
 
 - (void)showErrorBox:(NSString *)error {
-  NSString *escapedError = [error stringByReplacingOccurrencesOfString:@"\""
-                                                            withString:@"\\\""];
+  NSAlert *alert = [[NSAlert alloc] init];
+  alert.messageText = @"An error occured";
+  alert.informativeText = error;
+  alert.alertStyle = NSAlertStyleCritical;
+  [alert addButtonWithTitle:@"OK"];
 
-  NSString *scriptSource =
-      [NSString stringWithFormat:@"display dialog \"%@\"", escapedError];
-
-  NSAppleScript *appleScript =
-      [[NSAppleScript alloc] initWithSource:scriptSource];
-
-  [appleScript executeAndReturnError:nil];
+  [alert runModal];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
+  [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+  [NSApp activateIgnoringOtherApps:YES];
+
   self.statusItem = [[NSStatusBar systemStatusBar]
       statusItemWithLength:NSVariableStatusItemLength];
   NSStatusBarButton *button = self.statusItem.button;
