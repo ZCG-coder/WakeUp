@@ -17,6 +17,49 @@
 @end
 
 @implementation AppDelegate
+- (void)readSystemConfig {
+  NSAppleScript *appleScript =
+      [[NSAppleScript alloc] initWithSource:@"do shell script \"pmset -g\""];
+  NSDictionary *errorDict = nil;
+  NSAppleEventDescriptor *resultDescriptor =
+      [appleScript executeAndReturnError:&errorDict];
+
+  if (errorDict) {
+    [self showErrorBox:@"An error occured"];
+    return;
+  }
+
+  NSString *out = resultDescriptor.stringValue;
+  NSError *error = NULL;
+  NSRegularExpression *expr = [NSRegularExpression
+      regularExpressionWithPattern:@"^\\s+SleepDisabled\\s+([01])"
+                           options:NSRegularExpressionAnchorsMatchLines
+                             error:&error];
+  if (error) {
+    NSLog(@"regex: %ld", (long)[error code]);
+    NSLog(@"regex: %@", [error description]);
+  }
+
+  NSTextCheckingResult *match =
+      [expr firstMatchInString:out
+                       options:0
+                         range:NSMakeRange(0, [out length])];
+  // sleep is probably disabled
+  if (!match)
+    return;
+
+  if ([match numberOfRanges] > 1) {
+    NSRange range = [match rangeAtIndex:1];
+    if (range.location != NSNotFound) {
+      NSString *group1String = [out substringWithRange:range];
+      if ([group1String isEqual:@"1"]) {
+        self.sleepStatCode = 0;
+        NSLog(@"Sleep is diabled");
+      }
+    }
+  }
+}
+
 - (void)updateStrings {
   NSStatusBarButton *button = self.statusItem.button;
 
@@ -24,14 +67,14 @@
     self.sleepStatus = @"Sleep Enabled";
     self.sleepToggleStatus = @"Disable Sleep";
     self.buttonImage = [NSImage imageWithSystemSymbolName:@"mug"
-                                 accessibilityDescription:@"WakeUp Settings"];
+                                 accessibilityDescription:self.sleepStatus];
   } else {
     self.sleepStatus = @"Sleep Disabled";
     self.sleepToggleStatus = @"Enable Sleep";
     self.buttonImage = [NSImage imageWithSystemSymbolName:@"mug.fill"
-                                 accessibilityDescription:@"WakeUp Settings"];
+                                 accessibilityDescription:self.sleepStatus];
   }
-  button.image = self.buttonImage;
+  [button setImage:self.buttonImage];
 
   [self.sleepToggle setTitle:self.sleepToggleStatus];
   [self.sleepLabel setTitle:self.sleepStatus];
@@ -73,19 +116,18 @@
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
-  self.sleepStatCode = 1;
-  [self updateStrings];
-
   self.statusItem = [[NSStatusBar systemStatusBar]
       statusItemWithLength:NSVariableStatusItemLength];
-
   NSStatusBarButton *button = self.statusItem.button;
 
   self.buttonImage = [NSImage imageWithSystemSymbolName:@"mug"
                                accessibilityDescription:@"WakeUp Settings"];
   if (button) {
-    button.image = self.buttonImage;
+    [button setImage:self.buttonImage];
   }
+  self.sleepStatCode = 1;
+  [self readSystemConfig];
+  [self updateStrings];
 
   NSMenu *menu = [[NSMenu alloc] init];
   self.sleepToggle = [[NSMenuItem alloc] initWithTitle:self.sleepToggleStatus
